@@ -75,26 +75,31 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
     
 
     while(true){
-
-        arma::mat tmp = norm_X.cols(candidate);
-        tmp = tmp.t() * res_y;
-        tmp = arma::abs(tmp);
-        temp_select = tmp.index_max();
-        arma::uword tmp_s = candidate(temp_select);
-        candidate.shed_row(temp_select);
-        proj = projection_matrix(norm_X,proj,temp_select,n);
-        double new_ebic;
-        res_y = proj * norm_y;
-        new_ebic = EBIC(res_y, s+1, p, r);
-        if (new_ebic>ebic){
+        if (candidate.is_empty()){
+            cout<<"All selected"<<endl;
             break;
         } else{
-            arma::uvec a={tmp_s};
-            selected = arma::join_cols(selected,a);
-            s++;
+            arma::mat tmp = norm_X.cols(candidate);
+            tmp = tmp.t() * res_y;
+            tmp = arma::abs(tmp);
+            temp_select = tmp.index_max();
+            arma::uword tmp_s = candidate(temp_select);
+            candidate.shed_row(temp_select);
+            proj = projection_matrix(norm_X,proj,temp_select,n);
+            double new_ebic;
+            res_y = proj * norm_y;
+            new_ebic = EBIC(res_y, s+1, p, r);
+            if (new_ebic>ebic){
+                break;
+            } else{
+                arma::uvec a={tmp_s};
+                selected = arma::join_cols(selected,a);
+                s++;
+            }
         }
     }
-    arma::mat select_X = X.cols(selected);
+    arma::mat select_X;
+    select_X = arma::join_rows(arma::ones<arma::vec>(n),X.cols(selected));
     arma::colvec coef;
     coef = arma::inv_sympd(select_X.t() * select_X) * select_X.t() * y;
     selected = selected + arma::ones<arma::uvec>(selected.size());
