@@ -40,8 +40,8 @@ double EBIC(const arma::colvec res_y, int s, int p, double r){
 }
 
 arma::vec Normalization(const arma::vec x){
-    arma::vec nx;
     int n = x.size();
+    arma::vec nx(n);
     double m = arma::mean(x);
     double sd = arma::stddev(x);
     for (int i=0; i<n; i++){
@@ -56,34 +56,32 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
     int p = X.n_cols;
     
     //normalization
-    arma::colvec norm_y;
-    arma::mat norm_X(X);
+    arma::vec norm_y;
+    arma::mat norm_X(n,p);
+    
 
     norm_y = Normalization(y);
-    norm_X.each_col( [](arma::vec& a){ a = Normalization(a); } ); 
-    arma::uvec candidate = arma::linspace<arma::uvec>(0,n-1,n);
+    for (int i =0; i<p; i++){
+        norm_X.col(i) = Normalization(X.col(i));
+    }
+    arma::uvec candidate = arma::linspace<arma::uvec>(0,p-1,p);
     arma::uvec selected;
     arma::uword temp_select;
-    
     arma::mat proj(n,n,arma::fill::eye);
-    
-    for(int i=0; i<n; i++){
-        candidate(i) = i;
-    }
-    
     double ebic;
     arma::colvec res_y = proj * norm_y; 
     int s = 0;
     ebic = EBIC(res_y, s, p, r);
     
-     
+
     while(true){
+
         arma::mat tmp = norm_X.cols(candidate);
         tmp = tmp.t() * res_y;
         tmp = arma::abs(tmp);
         temp_select = tmp.index_max();
+        arma::uword tmp_s = candidate(temp_select);
         candidate.shed_row(temp_select);
-        temp_select = candidate(temp_select);
         proj = projection_matrix(norm_X,proj,temp_select,n);
         double new_ebic;
         res_y = proj * norm_y;
@@ -91,17 +89,15 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
         if (new_ebic>ebic){
             break;
         } else{
-            arma::uvec a={temp_select};
-            selected = arma::join_rows(selected,a);
+            arma::uvec a={tmp_s};
+            selected = arma::join_cols(selected,a);
             s++;
         }
     }
-    
     arma::mat select_X = X.cols(selected);
     arma::colvec coef;
     coef = arma::inv_sympd(select_X.t() * select_X) * select_X.t() * y;
-    
-    selected.each_row() += arma::ones<arma::uvec>(selected.size());
+    selected = selected + arma::ones<arma::uvec>(selected.size());
     return List::create(Named("Select.Features") = selected,
                         Named("Coef") = coef);
     
