@@ -33,10 +33,21 @@ int combination(int m, int n){
 // [[Rcpp::export]]
 double EBIC(const arma::colvec res_y, int s, int p, double r){
     double ebic;
-    int n = y.size();
+    int n = res_y.size();
     ebic =  n*log(arma::as_scalar(res_y.t()*res_y)/n);
     ebic = ebic + s*log(n) + 2*(1- log(n)/(r*log(p)))*log(combination(p,s));
     return ebic;
+}
+
+arma::vec Normalization(const arma::vec x){
+    arma::vec nx;
+    int n = x.size();
+    double m = arma::mean(x);
+    double sd = arma::stddev(x);
+    for (int i=0; i<n; i++){
+        nx(i) = sqrt(n)*(x(i) - m) / sd;
+    }
+    return nx;
 }
 
 // [[Rcpp::export]]
@@ -47,13 +58,12 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
     //normalization
     arma::colvec norm_y;
     arma::mat norm_X(X);
-    
-    norm_y = sqrt(n)*(y.each_row() - mean(y)) / stddev(y);
-    norm_X.each_col( [](vec& a){ sqrt(n)*(a.each_row() - mean(a)) / stddev(a); } ); 
-      
-    arma::uvec candidate(n);
+
+    norm_y = Normalization(y);
+    norm_X.each_col( [](arma::vec& a){ a = Normalization(a); } ); 
+    arma::uvec candidate = arma::linspace<arma::uvec>(0,n-1,n);
     arma::uvec selected;
-    uword temp_select;
+    arma::uword temp_select;
     
     arma::mat proj(n,n,arma::fill::eye);
     
@@ -68,8 +78,9 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
     
      
     while(true){
-        arma::colvec tmp = norm_X.cols(candidate).t() * res_y;
-        tmp = abs(tmp);
+        arma::mat tmp = norm_X.cols(candidate);
+        tmp = tmp.t() * res_y;
+        tmp = arma::abs(tmp);
         temp_select = tmp.index_max();
         candidate.shed_row(temp_select);
         temp_select = candidate(temp_select);
@@ -80,7 +91,8 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
         if (new_ebic>ebic){
             break;
         } else{
-            selected = join_rows(selected,temp_select);
+            arma::uvec a={temp_select};
+            selected = arma::join_rows(selected,a);
             s++;
         }
     }
@@ -89,7 +101,7 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
     arma::colvec coef;
     coef = arma::inv_sympd(select_X.t() * select_X) * select_X.t() * y;
     
-    selected.each_row() += 1;
+    selected.each_row() += arma::ones<arma::uvec>(selected.size());
     return List::create(Named("Select.Features") = selected,
                         Named("Coef") = coef);
     
