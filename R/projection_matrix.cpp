@@ -46,7 +46,10 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
     
     //normalization
     arma::colvec norm_y;
-    arma：：mat norm_X;
+    arma::mat norm_X(X);
+    
+    norm_y = sqrt(n)*(y.each_row() - mean(y)) / stddev(y);
+    norm_X.each_col( [](vec& a){ sqrt(n)*(a.each_row() - mean(a)) / stddev(a); } ); 
       
     arma::uvec candidate(n);
     arma::uvec selected;
