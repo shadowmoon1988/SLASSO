@@ -89,7 +89,7 @@ List SLasso(const arma::colvec y, const arma::mat X, double r = 2.1){
             double new_ebic;
             res_y = proj * norm_y;
             new_ebic = EBIC(res_y, s+1, p, r);
-            if (new_ebic>ebic){
+            if ( (s>0) && (new_ebic>ebic) ){
                 break;
             } else{
                 arma::uvec a={tmp_s};
